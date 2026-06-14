@@ -40,6 +40,23 @@ SRAM** (its `.data`+`.bss`): the protocol runs from flash and the heap, not from
 static RAM. (Runtime tunnel buffers + worker-thread stacks use heap on top, like
 any networked app.) So *"how much RAM does adding Tailscale cost?"* → about 2 kB.
 
+## How it compares
+
+Other ESP32 Tailscale efforts, by static SRAM (the number this niche markets on):
+
+| Project | Lang | Native Tailscale node | Static SRAM | Portable `no_std` core |
+| --- | --- | --- | --- | --- |
+| **tailscale-mpe-rust** | **Rust** | ✅ full — ts2021 + WireGuard + disco + STUN + DERP | ~118 kB total · **+~2 kB** over a WiFi baseline | ✅ builds for bare-metal `riscv32` |
+| [microlink](https://github.com/CamM2325/microlink) | C | ✅ full | ~85–116 kB total | ✗ |
+| [tailscale-iot](https://github.com/alfs/tailscale-iot) | C | ⚠ PoC / partial | n/p | ✗ |
+| [esp32-tailbridge](https://github.com/pierrejay/esp32-tailbridge) | C/C++ | via a WireGuard bridge | n/p | ✗ |
+| stock Tailscale | Go | ✅ full (+ MagicDNS, …) | needs an OS — won't fit an MCU | ✗ |
+
+Total static SRAM is on par with the C client (~118 vs ~116 kB for a WiFi build —
+most of it is the shared esp-idf/WiFi framework both carry). What's different here:
+**Rust** (memory-safe), a **portable `no_std` core** reusable beyond the ESP32
+(iOS / desktop / WASI), and a **~2 kB incremental RAM cost**. *n/p = not published.*
+
 ## What works
 
 - **Control plane (ts2021):** registers with `controlplane.tailscale.com`,

@@ -90,6 +90,22 @@ flash and the heap, not static RAM. (Runtime tunnel buffers + worker-thread stac
 use heap on top, like any networked app.) So <i>"how much RAM does adding Tailscale
 cost?"</i> → about 2 kB.</p>
 
+<h2>How it compares</h2>
+<p class="small">Other ESP32 Tailscale efforts, by static SRAM (the number this
+niche markets on). <i>n/p = not published.</i></p>
+<table>
+  <tr><th>Project</th><th>Lang</th><th>Native Tailscale node</th><th>Static SRAM</th><th>Portable no_std core</th></tr>
+  <tr class="hi"><td><b>tailscale-mpe-rust</b></td><td><b>Rust</b></td><td>✅ full — ts2021 + WireGuard + disco + STUN + DERP</td><td>~118 kB total · <b>+~2 kB</b> over a WiFi baseline</td><td>✅ bare-metal riscv32</td></tr>
+  <tr><td><a href="https://github.com/CamM2325/microlink">microlink</a></td><td>C</td><td>✅ full</td><td>~85–116 kB total</td><td>✗</td></tr>
+  <tr><td><a href="https://github.com/alfs/tailscale-iot">tailscale-iot</a></td><td>C</td><td>⚠ PoC / partial</td><td>n/p</td><td>✗</td></tr>
+  <tr><td><a href="https://github.com/pierrejay/esp32-tailbridge">esp32-tailbridge</a></td><td>C/C++</td><td>via a WireGuard bridge</td><td>n/p</td><td>✗</td></tr>
+  <tr><td>stock Tailscale</td><td>Go</td><td>✅ full (+ MagicDNS, …)</td><td>needs an OS — won't fit an MCU</td><td>✗</td></tr>
+</table>
+<p class="small">Total static SRAM is on par with the C client (~118 vs ~116 kB
+for a WiFi build — most of it is the shared esp-idf/WiFi framework both carry). The
+difference: <b>Rust</b> (memory-safe), a <b>portable no_std core</b> reusable beyond
+the ESP32, and a <b>~2 kB incremental RAM cost</b>.</p>
+
 <h2>What works</h2>
 <ul>
   <li><b>Control plane (ts2021):</b> registers with Tailscale SaaS (browser auth or
