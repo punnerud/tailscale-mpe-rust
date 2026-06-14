@@ -1,0 +1,6 @@
+# Name,   Type, SubType, Offset,   Size,     Flags
+# 16 MB flash. Generous 8 MB app partition (lots of headroom); the rest is left
+# free for a future storage/OTA partition.
+nvs,      data, nvs,     0x9000,   0x6000,
+phy_init, data, phy,     0xf000,   0x1000,
+factory,  app,  factory, 0x10000,  0x800000,

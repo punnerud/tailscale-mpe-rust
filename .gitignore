@@ -1,0 +1,13 @@
+/target
+/.embuild
+
+# Secrets / local config — copy src/config.rs.example to src/config.rs and fill in.
+# Keeps WiFi SSID/password and any Tailscale auth key out of the repo.
+src/config.rs
+
+# Local benchmark harness (Python venv + host load generator live outside the repo)
+bench-venv/
+bench_run.py
+
+.DS_Store
+*.swp

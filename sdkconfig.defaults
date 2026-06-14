@@ -1,0 +1,38 @@
+# T-Dongle S3 has 16 MB flash
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+
+# Custom partition table with a large (8 MB) app partition. esp-idf-sys resolves
+# a relative custom filename against the generated build dir, so an ABSOLUTE path
+# is required here. Update this if the project directory moves.
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="/Users/punnerud/Downloads/tdongles3/Tailscale-Rust/partitions.csv"
+
+# Give the main task a comfortable stack (TLS handshake for the /key fetch and
+# the Noise crypto need a lot of stack).
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=24000
+
+# Route the console (and our log output) to the native USB-Serial-JTAG, which is
+# what the T-Dongle S3 exposes over USB. Without this, logs go to UART0 (GPIO43)
+# and are invisible over the USB cable.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+
+# TLS root certificate bundle, so the one-shot HTTPS GET /key to
+# controlplane.tailscale.com works out of the box.
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=y
+
+# IGMP for mDNS multicast (join 224.0.0.251) — used by the mdns-forward reflector.
+CONFIG_LWIP_IGMP=y
+
+# IP forwarding + NAPT for the subnet-router / exit-node data path (esp_netif_napt_enable).
+# Compiled in for all builds; inactive unless a forwarding netif is created + NAPT enabled.
+CONFIG_LWIP_IP_FORWARD=y
+CONFIG_LWIP_IPV4_NAPT=y
+
+# Performance: run the Xtensa cores at max 240 MHz (~1.5x the 160 MHz default —
+# WireGuard ChaCha/Poly is pure-software and CPU-bound) and give UDP a deeper RX
+# queue so bursts aren't dropped before our data-plane decrypts them.
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+CONFIG_LWIP_UDP_RECVMBOX_SIZE=64
+
+# No Bluetooth in this project — leave BT disabled to free RAM/flash.

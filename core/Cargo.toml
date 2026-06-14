@@ -1,0 +1,27 @@
+[package]
+name = "tailscale-core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+description = "Portable no_std+alloc Tailscale client core (protocol + data plane), platform I/O behind traits"
+
+[lib]
+harness = false
+
+# no_std + alloc. Platform I/O (UDP/TCP/TLS), storage and clock are provided by the
+# host via the traits in `platform`. RNG comes from `getrandom`, which has backends
+# for esp-idf (esp_fill_random), Apple, Linux, WASI, etc. — so this crate builds for
+# ESP32 / iOS / desktop / WASI alike. Crypto crates use default-features=false +
+# alloc so they stay no_std; versions match the firmware so Cargo unifies one copy.
+[dependencies]
+# `custom` lets getrandom compile on backend-less bare-metal targets (the no_std
+# validation build registers a custom source); on esp-idf/host the built-in
+# platform backend is still used, so `custom` is a no-op there.
+getrandom = { version = "0.2", features = ["custom"] }
+anyhow = { version = "1", default-features = false }
+blake2 = { version = "0.10", default-features = false }
+chacha20poly1305 = { version = "0.10", default-features = false, features = ["alloc"] }
+x25519-dalek = { version = "2", default-features = false, features = ["static_secrets"] }
+crypto_box = { version = "0.9", default-features = false, features = ["salsa20", "alloc"] }
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1", default-features = false, features = ["alloc"] }

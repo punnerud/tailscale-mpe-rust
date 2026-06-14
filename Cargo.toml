@@ -1,0 +1,128 @@
+# This crate is the ESP32 adapter (esp-idf firmware) AND the workspace root. The
+# portable, platform-independent Tailscale logic lives in the `core` member crate
+# (tailscale-core, no_std+alloc); the adapter implements its platform traits.
+[workspace]
+members = ["core"]
+resolver = "2"
+
+[package]
+name = "tailscale-rust"
+version = "0.1.0"
+authors = ["morten@punnerud.net"]
+edition = "2021"
+rust-version = "1.77"
+
+[[bin]]
+name = "tailscale-rust"
+harness = false # do not use the built in cargo test harness -> resolve rust-analyzer errors
+
+[profile.release]
+opt-level = "s"
+
+[profile.dev]
+debug = true    # Symbols are nice and they don't increase the size on Flash
+opt-level = "z"
+
+[features]
+# Composable Tailscale features. `--no-default-features` = WiFi+display-only
+# baseline. Mix to fit a deployment, e.g. a tiny LAN-only feeder:
+#   --no-default-features --features "ts,direct,icmp"
+default = [
+    "ts",
+    "direct",
+    "derp",
+    "http-server",
+    "icmp",
+    "authkey",
+    "packet-filter",
+    "derp-upgrade",
+    "birthday",
+    "outbound",
+    "mdns-forward",
+    # Symmetric dual-core data plane. MEASURED a strict win: same latency
+    # (~20ms median, 0% loss) and +60% throughput (~6.5 vs ~4.0 Mbit/s) vs
+    # single-core. See the dualcore comment below.
+    "dualcore",
+]
+ts = []                              # core: control plane + WireGuard + keys
+direct = ["ts"]                      # disco + STUN + UDP LAN direct path
+derp = ["ts"]                        # DERP relay client (remote reachability)
+http-server = ["ts"]                 # minimal in-tunnel TCP/HTTP server
+icmp = ["ts"]                        # answer ICMP echo (ping)
+authkey = ["ts"]                     # headless pre-auth-key provisioning (+tags)
+packet-filter = ["ts"]               # enforce netmap ACLs (drop unauthorized src)
+derp-upgrade = ["ts", "direct", "derp"] # upgrade relayed peers to a direct path
+birthday = ["direct"]                # birthday-paradox port spray for symmetric NAT
+outbound = ["ts"]                    # device-initiated traffic (push telemetry)
+mdns-forward = ["direct"]            # reflect mDNS/Bonjour across LANs over the tunnel
+# subnet-router/exit-node: route advertisement (always available via config) + the
+# NAPT data path. NOT in default — it's a build variant that changes lwIP routing.
+subnet-router = ["direct"]
+bench = ["direct"]                    # UDP throughput sink on port 5201 (iperf-like)
+# Run the data plane as 2 SYMMETRIC recv+decrypt threads (one pinned per core).
+# They share State via a Mutex; the recv_from is serialized by a separate recv lock
+# (lwIP UDP sockets are NOT safe for concurrent recv — two recvs double-free the
+# netbuf -> panic), but the ChaCha20-Poly1305 decrypt runs OUTSIDE both locks so
+# both cores crunch crypto in parallel. MEASURED (wg-bench direct-path A/B): ~6.0-6.6
+# Mbit/s vs single-core ~3.9-4.0 = ~1.6x (not 2x: recv + handle are serialized, only
+# decrypt is parallel). Opt-in. Replaced an earlier pipeline design (1 dispatcher +
+# 2 workers = 3 threads on 2 cores) that oversubscribed the chip. Measure with the
+# `bench` feature + ../../wg-bench; see memory tailscale-rust-benchmark.
+dualcore = ["direct"]
+
+[dependencies]
+# Portable Tailscale core (no_std+alloc); this crate is its ESP32 adapter.
+tailscale-core = { path = "core" }
+log = "0.4"
+anyhow = "1"
+esp-idf-svc = "0.52"
+esp-idf-hal = "0.46"
+
+# Display (ST7735 on the T-Dongle S3) — same stack as the tdongles3 project
+mipidsi = "0.9"
+embedded-graphics = "0.8"
+embedded-hal = "1.0"
+
+# ts2021 control plane crypto. snow with the pure-Rust default-resolver only.
+# IMPORTANT:
+#  * `default-features = false` so the `ring-resolver` never turns on (ring does
+#    not build for xtensa).
+#  * enable the individual `use-*` backends explicitly — `default-resolver` alone
+#    leaves the crypto arms #[cfg]'d out (Curve25519 not covered -> compile error).
+#  * do NOT enable snow's `std` feature: it lists `ring/std`, which (no `?`) would
+#    force-enable the optional `ring` dependency. snow runs fine in no_std+alloc.
+snow = { version = "0.10", default-features = false, features = [
+    "use-curve25519",
+    "use-chacha20poly1305",
+    "use-blake2",
+    "use-getrandom",
+    # Tailscale's transport phase uses a BIG-ENDIAN nonce counter (non-standard
+    # vs the Noise spec's little-endian), so snow's own transport mode can't
+    # interop. We use snow only for the handshake, then pull the raw split keys
+    # and run transport records ourselves with a BE nonce.
+    "risky-raw-split",
+] }
+# Derive node/disco public keys from raw private bytes (pulls the same
+# curve25519-dalek 4 as snow, so versions unify).
+x25519-dalek = { version = "2", default-features = false, features = ["static_secrets"] }
+
+# JSON for /machine/register and /machine/map
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# ts2021 transport-record AEAD (also reused by the WG stretch). IETF
+# ChaCha20-Poly1305; we drive the nonce ourselves (big-endian, Tailscale-style).
+chacha20poly1305 = "0.10"
+
+# disco PING/PONG: NaCl crypto_box = Curve25519 + XSalsa20-Poly1305 (SalsaBox).
+crypto_box = { version = "0.9", features = ["salsa20"] }
+
+# WireGuard handshake (Noise_IKpsk2_25519_ChaChaPoly_BLAKE2s):
+#   blake2 = Blake2s-256 hash + keyed-Blake2s-128 (mac1).
+# HMAC-Blake2s (the KDF) is hand-rolled in wg.rs: the `hmac` crate only wraps
+# eager-buffer hashes and BLAKE2s uses a lazy buffer.
+# (chacha20poly1305 + x25519-dalek are already deps, reused here.)
+blake2 = "0.10"
+
+[build-dependencies]
+embuild = { version = "0.33", features = ["espidf"] }

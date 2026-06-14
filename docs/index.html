@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tailscale-mpe-rust — pure-Rust Tailscale on ESP32-S3</title>
+<meta name="description" content="A from-scratch pure-Rust Tailscale client for the ESP32-S3 (LilyGO T-Dongle S3): ts2021 control plane, WireGuard, disco, STUN, DERP, dual-core. By Morten Punnerud-Engelstad.">
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --fg:#e6edf3; --muted:#9aa7b4;
+    --acc:#3fb950; --acc2:#58a6ff; --line:#293040; --code:#0b0f14;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  a{color:var(--acc2);text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:880px;margin:0 auto;padding:0 20px 80px}
+  header{padding:64px 0 28px;border-bottom:1px solid var(--line);margin-bottom:8px}
+  h1{font-size:2.3rem;margin:0 0 6px;letter-spacing:-.5px}
+  h1 .mono{color:var(--acc)}
+  .tag{color:var(--muted);font-size:1.05rem;margin:0 0 18px}
+  .by{color:var(--muted);font-size:.92rem}
+  .note{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--acc2);
+    border-radius:8px;padding:12px 16px;margin:18px 0;color:var(--muted);font-size:.95rem}
+  h2{font-size:1.4rem;margin:42px 0 12px;letter-spacing:-.3px}
+  h2 .mono{color:var(--acc)}
+  ul{padding-left:22px} li{margin:6px 0}
+  .badges{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}
+  .badge{background:var(--panel);border:1px solid var(--line);border-radius:999px;
+    padding:5px 13px;font-size:.85rem;color:var(--muted)}
+  .badge b{color:var(--fg)}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.93rem;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  th,td{text-align:left;padding:9px 13px;border-bottom:1px solid var(--line)}
+  th{background:#1b2230;color:var(--fg);font-weight:600}
+  tr:last-child td{border-bottom:none}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .hi td{background:rgba(63,185,80,.08)}
+  .mono,code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  code{background:var(--code);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:.88em}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:16px;overflow:auto;font-size:.86rem}
+  pre code{background:none;border:none;padding:0}
+  .small{color:var(--muted);font-size:.86rem}
+  footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:.88rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1><span class="mono">tailscale-mpe-rust</span></h1>
+  <p class="tag">A pure-Rust Tailscale client for the ESP32-S3 — control plane,
+    WireGuard, disco, STUN &amp; DERP, all from scratch.</p>
+  <p class="by">By Morten Punnerud-Engelstad ·
+    <a href="https://github.com/punnerud/tailscale-mpe-rust">github.com/punnerud/tailscale-mpe-rust</a></p>
+  <div class="badges">
+    <span class="badge"><b>no_std</b> core</span>
+    <span class="badge"><b>~1.5 MB</b> full demo</span>
+    <span class="badge"><b>~6.5 Mbit/s</b> dual-core</span>
+    <span class="badge"><b>~20 ms</b> in-tunnel latency</span>
+    <span class="badge">LilyGO <b>T-Dongle S3</b></span>
+  </div>
+</header>
+
+<div class="note"><b>Not</b> the unrelated <code>tailscale-rust</code> crate — this
+is a from-scratch firmware plus a portable <code>no_std</code> protocol core. A ~$10
+USB dongle becomes a real Tailscale node you can <code>ping</code>, browse to, and
+route through, running hand-rolled WireGuard crypto on a dual-core Xtensa LX7.</div>
+
+<h2>What works</h2>
+<ul>
+  <li><b>Control plane (ts2021):</b> registers with Tailscale SaaS (browser auth or
+    headless pre-auth-key), persists across reboots, goes green in the admin console.
+    Frugal netmap parse that fits in ~287&nbsp;KB of heap.</li>
+  <li><b>WireGuard data plane</b> (initiator &amp; responder, multiple tunnels):
+    LAN direct via disco; remote direct via STUN + <code>CALL_ME_MAYBE</code>
+    hole-punching (with a birthday-paradox port spray for symmetric NAT);
+    encrypted <b>DERP relay</b> fallback over real TLS.</li>
+  <li><b>In-tunnel services:</b> answers <code>ping</code>, serves a small HTTP
+    page, and can initiate ICMP/UDP/TCP out the tunnel.</li>
+  <li><b>mDNS reflector</b> across two LANs, <b>packet-filter</b> (netmap ACL), and
+    <b>subnet-router / exit-node</b> route advertisement.</li>
+  <li><b>Dual-core</b> WireGuard decrypt for ~1.6× throughput.</li>
+</ul>
+
+<h2>Portable <span class="mono">no_std</span> core</h2>
+<p>Protocol logic lives in a platform-independent <code>tailscale-core</code> crate
+(<code>#![no_std] + alloc</code>); the ESP32 firmware is a thin adapter for the OS
+bits (WiFi/UDP/TLS, NVS, the ST7735 display). Migrated so far:
+<code>icmp</code>, <code>stun</code>, <code>disco</code>, <code>wg</code>,
+<code>outbound</code>, <code>tcp</code>, <code>peers</code>, and the pure parts of
+<code>node</code>. <b>Proven genuinely std-less:</b> the core + all crypto deps
+compile for a bare-metal target (<code>riscv32imc-unknown-none-elf</code>). The same
+<code>wg.rs</code> is reused unchanged by the host benchmark tool.</p>
+
+<h2>Benchmarks <span class="small">(T-Dongle S3 @ 240 MHz, both LX7 cores)</span></h2>
+<p class="small">Measured with a host WireGuard load generator that handshakes
+<b>directly</b> with the dongle over the LAN (no path drift onto DERP), flooding
+inner UDP and reading the device's reflected RX rate.</p>
+<table>
+  <tr><th>Metric</th><th class="num">Single-core</th><th class="num">Dual-core (default)</th></tr>
+  <tr class="hi"><td>WireGuard decrypt throughput</td><td class="num">~3.9–4.0 Mbit/s</td><td class="num">~6.0–6.6 Mbit/s (~1.6×)</td></tr>
+  <tr><td>In-tunnel latency (ICMP RTT, median)</td><td class="num">~21 ms</td><td class="num">~20 ms</td></tr>
+  <tr><td>Latency min / packet loss</td><td class="num">~13 ms / 0%</td><td class="num">~13 ms / 0%</td></tr>
+</table>
+<p class="small">Bottleneck: pure-Rust ChaCha20-Poly1305 on the LX7 (no hardware
+ChaCha). Dual-core decrypts on both cores in parallel with unchanged latency — a
+strict win. Great for control / IoT / SSH / discovery; not a bulk-transfer gateway.</p>
+
+<h2>Flash size</h2>
+<p class="small">App image size (bytes written to flash), via
+<code>espflash save-image</code>.</p>
+<table>
+  <tr><th>Build</th><th class="num">App image</th><th class="num">Δ</th></tr>
+  <tr><td>Baseline — WiFi + ST7735 display only</td><td class="num">998 kB</td><td class="num">—</td></tr>
+  <tr><td><code>+ ts</code> — control plane + WireGuard + crypto/TLS</td><td class="num">1389 kB</td><td class="num">+391</td></tr>
+  <tr><td><code>+ direct</code> — disco + STUN + UDP data plane</td><td class="num">1468 kB</td><td class="num">+79</td></tr>
+  <tr><td><code>+ derp</code> — encrypted relay client</td><td class="num">1486 kB</td><td class="num">+18</td></tr>
+  <tr class="hi"><td><b>Default — full Tailscale demo (all features)</b></td><td class="num"><b>1509 kB</b></td><td class="num">—</td></tr>
+</table>
+<p class="small">~1.5 MB total — a small fraction of the dongle's flash. WiFi SSID /
+password (and an optional auth key) are build-time options you fill into
+<code>src/config.rs</code> (git-ignored).</p>
+
+<h3>Extra flash per feature</h3>
+<table>
+  <tr><th>Feature</th><th class="num">Extra</th><th>Adds</th></tr>
+  <tr><td><code>ts</code></td><td class="num">+391 kB</td><td>control plane + WireGuard + crypto + TLS (foundational)</td></tr>
+  <tr><td><code>direct</code></td><td class="num">+79 kB</td><td>disco + STUN + UDP data plane (LAN + NAT-punch)</td></tr>
+  <tr><td><code>derp</code></td><td class="num">+18 kB</td><td>encrypted relay fallback</td></tr>
+  <tr><td><code>mdns-forward</code></td><td class="num">+6 kB</td><td>mDNS/Bonjour reflector across LANs</td></tr>
+  <tr><td><code>outbound</code></td><td class="num">+5 kB</td><td>device-initiated ICMP/UDP/TCP out the tunnel</td></tr>
+  <tr><td><code>http-server</code></td><td class="num">+4 kB</td><td>in-tunnel TCP + the HTML web demo</td></tr>
+  <tr><td><code>icmp</code></td><td class="num">+2 kB</td><td>answer ping</td></tr>
+  <tr><td><code>birthday</code></td><td class="num">+2 kB</td><td>birthday-paradox port spray (symmetric NAT)</td></tr>
+  <tr><td><code>dualcore</code></td><td class="num">+2 kB</td><td>2-core parallel decrypt (+60% throughput)</td></tr>
+  <tr><td><code>packet-filter</code></td><td class="num">+1 kB</td><td>enforce netmap ACLs</td></tr>
+  <tr><td><code>derp-upgrade</code></td><td class="num">+1 kB</td><td>upgrade relayed peers to a direct path</td></tr>
+  <tr><td><code>authkey</code></td><td class="num">~0 kB</td><td>headless pre-auth-key provisioning</td></tr>
+  <tr><td><code>bench</code> <span class="small">(opt-in)</span></td><td class="num">+2 kB</td><td>UDP throughput sink + RX reflection</td></tr>
+  <tr><td><code>subnet-router</code> <span class="small">(opt-in)</span></td><td class="num">+1 kB</td><td>NAPT data-path foundation</td></tr>
+</table>
+
+<h2>Build &amp; flash</h2>
+<pre><code># 1. Provide your WiFi creds (git-ignored, never committed)
+cp src/config.rs.example src/config.rs
+$EDITOR src/config.rs        # set WIFI_SSID + WIFI_PASS
+
+# 2. Build + flash (esp-rs Xtensa toolchain + espflash)
+. ~/export-esp.sh
+cargo build --release
+espflash flash --monitor --port /dev/cu.usbmodemXXXX \
+  --bootloader  target/xtensa-esp32s3-espidf/release/bootloader.bin \
+  --partition-table target/xtensa-esp32s3-espidf/release/partition-table.bin \
+  target/xtensa-esp32s3-espidf/release/tailscale-rust</code></pre>
+<p class="small">First boot without an auth key prints a login URL on the serial
+console — open it to add the node to your tailnet. Then <code>ping 100.x.y.z</code>
+or browse <code>http://100.x.y.z/</code>.</p>
+
+<footer>
+  Pure-Rust Tailscale on a USB dongle. By Morten Punnerud-Engelstad ·
+  <a href="https://github.com/punnerud/tailscale-mpe-rust">source on GitHub</a>
+</footer>
+
+</div>
+</body>
+</html>

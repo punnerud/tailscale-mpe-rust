@@ -1,0 +1,56 @@
+//! Static configuration + NVS-backed overrides.
+//!
+//! COPY THIS FILE TO `src/config.rs` AND FILL IN YOUR OWN VALUES.
+//! `src/config.rs` is git-ignored so your WiFi credentials / auth key are never
+//! committed. At minimum set WIFI_SSID + WIFI_PASS (and an auth key OR use the
+//! interactive browser login printed on the serial console).
+
+/// WiFi network to join. REQUIRED — set these.
+pub const WIFI_SSID: &str = "YOUR_WIFI_SSID";
+pub const WIFI_PASS: &str = "YOUR_WIFI_PASSWORD";
+
+/// Tailscale control server (SaaS).
+pub const CONTROL_HOST: &str = "controlplane.tailscale.com";
+pub const CONTROL_PORT: u16 = 443;
+/// ts2021 runs over cleartext TCP (Noise provides encryption); the control
+/// server speaks the Upgrade happy-path on port 80.
+pub const TS2021_PORT: u16 = 80;
+
+/// `GET /key?v=<n>` returns the server's Noise static public key (the `mkey`).
+pub const KEY_ENDPOINT_VER: u32 = 130;
+
+/// Capability/protocol version advertised in register + map JSON.
+pub const CAPABILITY_VERSION: u32 = 90;
+
+/// Pre-auth key (tskey-auth-...) for headless/fleet provisioning. Empty = fall
+/// back to interactive browser auth. Only used when the `authkey` feature is on.
+/// KEEP SECRET — do not commit a real key.
+pub const AUTH_KEY_DEFAULT: &str = "";
+
+/// ACL tags to request at registration (e.g. &["tag:iot"]). Empty = no tags.
+pub const ADVERTISE_TAGS: &[&str] = &[];
+
+/// What this node calls itself in the tailnet.
+pub const DEVICE_NAME: &str = "tdongle-s3";
+pub const HOSTNAME: &str = "tdongle-s3";
+pub const OS_NAME: &str = "espidf";
+pub const OS_VERSION: &str = "5.2.2";
+pub const GO_ARCH: &str = "xtensa";
+
+/// NVS namespace for persisted keys + config.
+pub const NVS_NS: &str = "tsrust";
+
+/// Outbound (device-initiated) target — a peer's Tailscale IP the dongle pings
+/// and HTTP-GETs through the tunnel. Empty = disabled. Only used with `outbound`.
+pub const OUTBOUND_TARGET_IP: &str = "";
+pub const OUTBOUND_HTTP_PORT: u16 = 8080;
+pub const OUTBOUND_HTTP_PATH: &str = "/";
+
+/// mDNS reflector partner — another reflector node's Tailscale IP. Empty = disabled.
+pub const MDNS_PARTNER_IP: &str = "";
+
+/// Subnet routes to advertise (subnet-router), e.g. &["192.168.1.0/24"]. The
+/// tailnet admin must APPROVE them before peers use them. Empty = none.
+pub const SUBNET_ROUTES: &[&str] = &[];
+/// Advertise as an exit node (adds 0.0.0.0/0 + ::/0). Requires admin approval.
+pub const ADVERTISE_EXIT_NODE: bool = false;
