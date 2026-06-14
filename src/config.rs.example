@@ -54,3 +54,12 @@ pub const MDNS_PARTNER_IP: &str = "";
 pub const SUBNET_ROUTES: &[&str] = &[];
 /// Advertise as an exit node (adds 0.0.0.0/0 + ::/0). Requires admin approval.
 pub const ADVERTISE_EXIT_NODE: bool = false;
+
+/// Per-service TCP proxy (`tcp-proxy` feature): a tailnet peer connects to the
+/// dongle's 100.x:PROXY_LISTEN_PORT (in-tunnel) and the dongle forwards the request
+/// to PROXY_TARGET_IP:PROXY_TARGET_PORT on its local LAN, returning the response.
+/// Empty target = disabled. Reach one service on the other network without a full
+/// subnet-router.
+pub const PROXY_LISTEN_PORT: u16 = 8080;
+pub const PROXY_TARGET_IP: &str = "";
+pub const PROXY_TARGET_PORT: u16 = 80;

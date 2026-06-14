@@ -58,6 +58,9 @@ mdns-forward = ["direct"]            # reflect mDNS/Bonjour across LANs over the
 # subnet-router/exit-node: route advertisement (always available via config) + the
 # NAPT data path. NOT in default — it's a build variant that changes lwIP routing.
 subnet-router = ["direct"]
+# Per-service TCP proxy: in-tunnel TCP -> a fixed LAN host:port. Opt-in; reaches
+# one service on the other network without the full subnet-router/lwIP bridge.
+tcp-proxy = ["direct"]
 bench = ["direct"]                    # UDP throughput sink on port 5201 (iperf-like)
 # Run the data plane as 2 SYMMETRIC recv+decrypt threads (one pinned per core).
 # They share State via a Mutex; the recv_from is serialized by a separate recv lock

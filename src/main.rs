@@ -34,6 +34,8 @@ pub use tailscale_core::outbound; // packet builders, migrated to the no_std cor
 mod mdns;
 #[cfg(feature = "subnet-router")]
 mod router;
+#[cfg(feature = "tcp-proxy")]
+mod proxy;
 
 use std::io::Write as _; // stdout().flush()
 

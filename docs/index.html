@@ -97,6 +97,8 @@ No <code>tailscaled</code>, no Go runtime.</p>
     page, and can initiate ICMP/UDP/TCP out the tunnel.</li>
   <li><b>mDNS reflector</b> across two LANs, <b>packet-filter</b> (netmap ACL), and
     <b>subnet-router / exit-node</b> route advertisement.</li>
+  <li><b>Per-service TCP proxy</b> (opt-in): a peer reaches one service on the
+    dongle's LAN through the tunnel (no full subnet-router needed).</li>
   <li><b>Dual-core</b> WireGuard decrypt for ~1.6× throughput.</li>
 </ul>
 
@@ -156,6 +158,7 @@ password (and an optional auth key) are build-time options you fill into
   <tr><td><code>authkey</code></td><td class="num">~0 kB</td><td>headless pre-auth-key provisioning</td></tr>
   <tr><td><code>bench</code> <span class="small">(opt-in)</span></td><td class="num">+2 kB</td><td>UDP throughput sink + RX reflection</td></tr>
   <tr><td><code>subnet-router</code> <span class="small">(opt-in)</span></td><td class="num">+1 kB</td><td>NAPT data-path foundation</td></tr>
+  <tr><td><code>tcp-proxy</code> <span class="small">(opt-in)</span></td><td class="num">+3 kB</td><td>in-tunnel TCP &rarr; a fixed LAN host:port</td></tr>
 </table>
 
 <h2>Build &amp; flash</h2>

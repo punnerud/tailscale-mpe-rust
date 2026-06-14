@@ -43,6 +43,8 @@ struct State {
     pending: HashMap<[u8; 32], Pending>, // keyed by peer node pubkey (one per peer)
     tunnels: HashMap<u32, TunnelEntry>,  // keyed by our receiver index
     confirmed: HashSet<SocketAddr>,
+    #[cfg(feature = "tcp-proxy")]
+    proxy: crate::proxy::TcpProxy,
     #[cfg(feature = "outbound")]
     outbound: Option<OutboundRun>,
     #[cfg(feature = "mdns-forward")]
@@ -290,6 +292,8 @@ pub fn run(
         pending: HashMap::new(),
         tunnels: HashMap::new(),
         confirmed: HashSet::new(),
+        #[cfg(feature = "tcp-proxy")]
+        proxy: crate::proxy::TcpProxy::new(),
         #[cfg(feature = "outbound")]
         outbound: outbound_cfg.map(|c| {
             let mut s = [0u8; 4];
@@ -879,6 +883,22 @@ fn handle_decrypted(
         }
         return;
     }
+    // Per-service TCP proxy: in-tunnel TCP to the proxy port -> a LAN host:port.
+    #[cfg(feature = "tcp-proxy")]
+    {
+        let replies = st.proxy.handle(inner);
+        if !replies.is_empty() {
+            if let Some(e) = st.tunnels.get_mut(&our_index) {
+                for r in &replies {
+                    let out = e.tun.encrypt(r);
+                    let _ = sock.send_to(&out, src);
+                }
+                println!("dataplane: proxy -> sent {} segment(s) to {src}", replies.len());
+            }
+            return;
+        }
+    }
+
     #[cfg(feature = "http-server")]
     if let Some(e) = st.tunnels.get_mut(&our_index) {
         let replies = e.tcp.handle(inner);

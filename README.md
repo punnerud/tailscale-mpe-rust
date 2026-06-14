@@ -51,6 +51,10 @@ webserver, mDNS reflector, outbound client, dual-core, etc.) adds +511 kB
 - **mDNS/Bonjour reflector** across two LANs (loop-guarded).
 - **Packet-filter** (enforces the netmap ACL) and **subnet-router / exit-node**
   route advertisement (+ NAPT foundation).
+- **Per-service TCP proxy** (opt-in): a peer connects to the dongle's
+  `100.x:PROXY_LISTEN_PORT` over the tunnel and the dongle forwards to a fixed
+  `host:port` on its LAN — reach one service on the other network without a full
+  subnet-router. (`ping6` works too — see below.)
 - **Dual-core** WireGuard decrypt for ~1.6× throughput (see Benchmarks).
 
 ## Architecture: portable `no_std` core + ESP32 adapter
@@ -127,6 +131,7 @@ default build; `bench` / `subnet-router` measured added to the default):
 | `authkey` | ~0 kB | headless pre-auth-key provisioning |
 | `bench` *(opt-in)* | +2 kB | UDP throughput sink + RX reflection |
 | `subnet-router` *(opt-in)* | +1 kB | NAPT data-path foundation |
+| `tcp-proxy` *(opt-in)* | +3 kB | in-tunnel TCP → a fixed LAN host:port |
 
 Mix features to fit a deployment, e.g. a tiny LAN-only feeder:
 `--no-default-features --features "ts,direct,icmp"` (~1.47 MB).
