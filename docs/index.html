@@ -68,6 +68,21 @@ is a from-scratch firmware plus a portable <code>no_std</code> protocol core. A 
 USB dongle becomes a real Tailscale node you can <code>ping</code>, browse to, and
 route through, running hand-rolled WireGuard crypto on a dual-core Xtensa LX7.</div>
 
+<h2>How big is Tailscale itself? <span style="color:var(--acc)">Under 500&nbsp;kB.</span></h2>
+<p class="small">Subtract the WiFi + esp-idf runtime any networked ESP32 project
+already has (a 998&nbsp;kB baseline), and the Tailscale functionality <i>alone</i>
+adds:</p>
+<table>
+  <tr><th>Adds on top of a WiFi baseline</th><th class="num">Extra flash</th></tr>
+  <tr><td>Control plane (ts2021) + WireGuard crypto</td><td class="num">+391 kB</td></tr>
+  <tr><td>&nbsp;&nbsp;+ working data plane (disco + STUN + direct UDP)</td><td class="num">+470 kB</td></tr>
+  <tr class="hi"><td><b>&nbsp;&nbsp;+ DERP relay fallback (full remote reachability)</b></td><td class="num"><b>+488 kB</b></td></tr>
+</table>
+<p class="small">A complete Tailscale node — control plane, WireGuard, NAT traversal
+and relay fallback — <b>in under half a megabyte</b>. The full demo (in-tunnel
+webserver, mDNS reflector, outbound, dual-core, …) adds +511 kB (~1.5 MB total).
+No <code>tailscaled</code>, no Go runtime.</p>
+
 <h2>What works</h2>
 <ul>
   <li><b>Control plane (ts2021):</b> registers with Tailscale SaaS (browser auth or

@@ -17,6 +17,22 @@ through — running hand-rolled WireGuard crypto on a dual-core Xtensa LX7.
 
 ---
 
+## How big is Tailscale itself? **Under 500 kB.**
+
+Subtract the WiFi + esp-idf runtime any networked ESP32 project already has (a
+998 kB baseline here), and the Tailscale functionality *alone* adds:
+
+| Adds on top of a WiFi baseline | Extra flash |
+| --- | ---: |
+| Control plane (ts2021) + WireGuard crypto | **+391 kB** |
+| &nbsp;&nbsp;+ working data plane (disco + STUN + direct UDP) | **+470 kB** |
+| &nbsp;&nbsp;+ DERP relay fallback (full remote reachability) | **+488 kB** |
+
+A **complete Tailscale node — control plane, WireGuard, NAT traversal and relay
+fallback — in under half a megabyte.** The full demo below (with the in-tunnel
+webserver, mDNS reflector, outbound client, dual-core, etc.) adds +511 kB
+(~1.5 MB total). No `tailscaled`, no Go runtime.
+
 ## What works
 
 - **Control plane (ts2021):** registers with `controlplane.tailscale.com`,
