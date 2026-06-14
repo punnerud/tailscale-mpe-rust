@@ -25,3 +25,12 @@ x25519-dalek = { version = "2", default-features = false, features = ["static_se
 crypto_box = { version = "0.9", default-features = false, features = ["salsa20", "alloc"] }
 serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
+# ts2021 Noise IK handshake. Same no_std+alloc config as the firmware (pure-Rust
+# resolver only — never the ring backend; snow runs fine without std).
+snow = { version = "0.10", default-features = false, features = [
+    "use-curve25519",
+    "use-chacha20poly1305",
+    "use-blake2",
+    "use-getrandom",
+    "risky-raw-split",
+] }

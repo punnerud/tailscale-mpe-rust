@@ -33,3 +33,5 @@ pub mod tcp;
 pub mod peers;
 
 pub mod node;
+
+pub mod noise;

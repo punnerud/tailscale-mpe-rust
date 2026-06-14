@@ -1,5 +1,7 @@
 # tailscale-mpe-rust
 
+*(**MPE** = **M**orten **P**unnerud-**E**ngelstad)*
+
 A **pure-Rust [Tailscale](https://tailscale.com) client for the ESP32-S3** (LilyGO
 T-Dongle S3) — no C Tailscale, no `tailscaled`, no DERP-only shortcuts. It speaks
 the real protocols against Tailscale's own coordination server: the **ts2021**

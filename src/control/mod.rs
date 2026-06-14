@@ -5,7 +5,7 @@
 //! Noise IK handshake (M4), registration (M5) and the netmap fetch (M6).
 
 pub mod h2;
-pub mod noise;
+pub use tailscale_core::noise; // migrated to the no_std core crate
 pub use tailscale_core::peers; // migrated to the no_std core crate
 pub mod transport;
 

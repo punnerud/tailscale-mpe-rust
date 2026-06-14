@@ -5,6 +5,8 @@
 //! (offset 4..12), which is non-standard, so snow's transport mode can't interop.
 //! We therefore pull the raw split keys out of snow and run records ourselves.
 
+use alloc::vec::Vec;
+
 use anyhow::{bail, Context, Result};
 
 use chacha20poly1305::aead::{Aead, Payload};
