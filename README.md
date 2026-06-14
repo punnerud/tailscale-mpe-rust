@@ -33,6 +33,15 @@ fallback — in under half a megabyte.** The full demo below (with the in-tunnel
 webserver, mDNS reflector, outbound client, dual-core, etc.) adds +511 kB
 (~1.5 MB total). No `tailscaled`, no Go runtime.
 
+### And RAM? ~2 kB static.
+
+Comparing *total* static SRAM is misleading — most of it (~116 kB here) is the
+shared esp-idf + WiFi framework that **every** networked ESP32 firmware already
+carries. On top of that baseline, the Tailscale layer adds only **~2 kB of static
+SRAM** (its `.data`+`.bss`): the protocol runs from flash and the heap, not from
+static RAM. (Runtime tunnel buffers + worker-thread stacks use heap on top, like
+any networked app.) So *"how much RAM does adding Tailscale cost?"* → about 2 kB.
+
 ## What works
 
 - **Control plane (ts2021):** registers with `controlplane.tailscale.com`,
