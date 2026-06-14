@@ -173,6 +173,31 @@ espflash flash --monitor --port /dev/cu.usbmodemXXXX \
 console — open it to add the node to your tailnet. Then <code>ping 100.x.y.z</code>
 or browse <code>http://100.x.y.z/</code>.</p>
 
+<h2>Motivation — a low-latency nervous system for machines</h2>
+<p>Humanoid robots, vacuum cleaners, drones, self-driving cars and boats — the
+coming wave of autonomous machines has to <i>coordinate</i>, and coordination is
+bounded by latency. A cloud round-trip costs tens to hundreds of milliseconds; two
+machines in the same room, or across town over 5G, can reach each other
+<b>directly</b> in a few.</p>
+<p>Tailscale already gives every device a flat, encrypted, NAT-traversing address
+space where peers connect <b>directly, peer-to-peer</b> (hole-punched WireGuard),
+relaying only when they truly must — exactly the substrate machines need:
+<b>local-first, lowest-latency, no central server in the hot path.</b></p>
+<p>The catch: the stock Tailscale stack (Go + <code>tailscaled</code>) is too heavy
+for the cheapest, most numerous devices — the microcontrollers that will live
+<i>inside</i> those robots and appliances. This project shows the whole client fits
+in <b>under half a megabyte of portable, no-<code>std</code> Rust</b> on a ~$10
+chip. So the smallest, cheapest device can be a first-class mesh node — not a
+second-class thing tethered to a gateway or a cloud account.</p>
+<p>If every machine can securely find and reach every other machine — directly,
+privately, at the lowest possible latency, on hardware anyone can afford — that is
+an enabler for an <b>abundant, decentralized future for the benefit of all.
+Lifting all boats.</b></p>
+<div class="note" style="border-left-color:var(--acc)">Sibling project:
+<a href="https://github.com/punnerud/mpee"><b>mpee</b></a> is the fleet-routing
+<i>brain</i> (optimize who goes where); <b>tailscale-mpe-rust</b> is the
+low-latency <i>nervous system</i> (let them all talk, directly).</div>
+
 <footer>
   Pure-Rust Tailscale on a USB dongle. By Morten Punnerud-Engelstad ·
   <a href="https://github.com/punnerud/tailscale-mpe-rust">source on GitHub</a>

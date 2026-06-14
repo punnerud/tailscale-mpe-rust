@@ -160,6 +160,36 @@ the node to your tailnet. Then `ping 100.x.y.z`, or browse to `http://100.x.y.z/
 credentials. If you advertise subnet routes / exit-node, combine with
 `packet-filter` so only authorized peers can route through the device.
 
+## Motivation — a low-latency nervous system for machines
+
+Humanoid robots, vacuum cleaners, drones, self-driving cars and boats — the coming
+wave of autonomous machines has to *coordinate*, and coordination is bounded by
+latency. A cloud round-trip costs tens to hundreds of milliseconds; two machines
+in the same room, or across town over 5G, can reach each other **directly** in a
+few.
+
+Tailscale already gives every device a flat, encrypted, NAT-traversing address
+space where peers connect **directly, peer-to-peer** (hole-punched WireGuard),
+falling back to a relay only when they truly must. That is exactly the substrate
+machines need to talk to each other: **local-first, lowest-latency, no central
+server in the hot path.**
+
+The catch is that the stock Tailscale stack (Go + `tailscaled`) is too heavy for
+the cheapest, most numerous devices — the microcontrollers that will actually live
+*inside* those robots and appliances. This project shows the whole client fits in
+**under half a megabyte of portable, no-`std` Rust**, running hand-rolled WireGuard
+on a ~$10 chip. So the smallest, cheapest device can be a first-class mesh node —
+not a second-class thing tethered to a gateway or a cloud account.
+
+If every machine can securely find and reach every other machine — directly,
+privately, at the lowest possible latency, on hardware anyone can afford — that is
+an enabler for an **abundant, decentralized future for the benefit of all. Lifting
+all boats.**
+
+> Sibling project: [**mpee**](https://github.com/punnerud/mpee) is the fleet-routing
+> *brain* (optimize who goes where); **tailscale-mpe-rust** is the low-latency
+> *nervous system* (let them all talk, directly).
+
 ## Repository layout
 
 ```
