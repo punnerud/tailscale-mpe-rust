@@ -416,7 +416,7 @@ fn try_upgrade(d: &mut Derp, id: &crate::node::Identity, up: &crate::node::Upgra
 /// the in-tunnel HTTP server, reflecting responses back through the relay.
 fn handle_inner(d: &mut Derp, p: &mut DerpPeer, src: &[u8; 32], inner: &[u8]) {
     #[cfg(feature = "icmp")]
-    if let Some(reply) = tailscale_core::icmp::echo_reply(inner) {
+    if let Some(reply) = tailscale_core::icmp::echo_reply_any(inner) {
         let out = p.tun.encrypt(&reply);
         let _ = d.send_packet(src, &out);
         println!("DERP ICMP echo -> replied to {}", hex8(src));

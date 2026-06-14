@@ -871,7 +871,7 @@ fn handle_decrypted(
     }
 
     #[cfg(feature = "icmp")]
-    if let Some(reply) = tailscale_core::icmp::echo_reply(inner) {
+    if let Some(reply) = tailscale_core::icmp::echo_reply_any(inner) {
         if let Some(e) = st.tunnels.get_mut(&our_index) {
             let out = e.tun.encrypt(&reply);
             let _ = sock.send_to(&out, src);
