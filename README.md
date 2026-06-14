@@ -45,8 +45,9 @@ webserver, mDNS reflector, outbound client, dual-core, etc.) adds +511 kB
   - **Remote direct** via STUN + `CALL_ME_MAYBE` NAT hole-punching, incl. a
     birthday-paradox port spray for symmetric NAT
   - **DERP relay** fallback (over real TLS) when hole-punching fails
-- **In-tunnel services:** answers ICMP echo (`ping`), serves a small HTTP page,
-  and can initiate traffic out (ICMP/UDP/TCP client).
+- **In-tunnel services:** answers ICMP echo — both `ping` (its `100.x` IPv4) and
+  `ping6` (its `fd7a:…` IPv6 address) over the same WireGuard session — serves a
+  small HTTP page, and can initiate traffic out (ICMP/UDP/TCP client).
 - **mDNS/Bonjour reflector** across two LANs (loop-guarded).
 - **Packet-filter** (enforces the netmap ACL) and **subnet-router / exit-node**
   route advertisement (+ NAPT foundation).

@@ -92,7 +92,8 @@ No <code>tailscaled</code>, no Go runtime.</p>
     LAN direct via disco; remote direct via STUN + <code>CALL_ME_MAYBE</code>
     hole-punching (with a birthday-paradox port spray for symmetric NAT);
     encrypted <b>DERP relay</b> fallback over real TLS.</li>
-  <li><b>In-tunnel services:</b> answers <code>ping</code>, serves a small HTTP
+  <li><b>In-tunnel services:</b> answers <code>ping</code> (IPv4) and
+    <code>ping6</code> (its <code>fd7a:…</code> IPv6 address), serves a small HTTP
     page, and can initiate ICMP/UDP/TCP out the tunnel.</li>
   <li><b>mDNS reflector</b> across two LANs, <b>packet-filter</b> (netmap ACL), and
     <b>subnet-router / exit-node</b> route advertisement.</li>
