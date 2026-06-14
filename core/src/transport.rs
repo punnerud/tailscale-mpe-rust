@@ -1,32 +1,36 @@
-//! Cleartext TCP transport for the ts2021 control channel.
+//! Cleartext-TCP transport for the ts2021 control channel, over a platform
+//! [`ByteStream`] (the adapter supplies a connected, timeout-configured socket).
 //!
 //! Tailscale's "happy path": a plain HTTP/1.1 Upgrade on port 80 carrying the
 //! first Noise message in the `X-Tailscale-Handshake` header; the server replies
 //! 101 and from then on the socket carries raw controlbase frames (no WebSocket,
 //! no TLS — Noise provides confidentiality).
 
-use std::io::{Read, Write};
-use std::net::TcpStream;
-use std::time::Duration;
+use alloc::boxed::Box;
+use alloc::format;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 
 use anyhow::{bail, Result};
+
+use crate::platform::ByteStream;
 
 const UPGRADE_VALUE: &str = "tailscale-control-protocol";
 
 pub struct Conn {
-    stream: TcpStream,
+    stream: Box<dyn ByteStream>,
     rx: Vec<u8>,
 }
 
-/// Connect to `host:port`, perform the HTTP/1.1 upgrade, and return the live
-/// connection positioned right after the `\r\n\r\n` (any early frame bytes are
-/// retained in the internal buffer).
-pub fn connect_and_upgrade(host: &str, port: u16, handshake_b64: &str) -> Result<Conn> {
-    let stream = TcpStream::connect((host, port))?;
-    // Long enough to wait out the map long-poll's keepalive interval (~25-60s).
-    stream.set_read_timeout(Some(Duration::from_secs(75)))?;
-    stream.set_write_timeout(Some(Duration::from_secs(20)))?;
-    stream.set_nodelay(true).ok();
+/// Perform the HTTP/1.1 upgrade over an already-connected `stream` and return the
+/// live connection positioned right after the `\r\n\r\n` (any early frame bytes
+/// are retained in the internal buffer). The adapter is responsible for the TCP
+/// connect + sensible read/write timeouts before handing the stream in.
+pub fn connect_and_upgrade(
+    stream: Box<dyn ByteStream>,
+    host: &str,
+    handshake_b64: &str,
+) -> Result<Conn> {
     let mut conn = Conn { stream, rx: Vec::new() };
 
     let req = format!(
@@ -37,14 +41,14 @@ pub fn connect_and_upgrade(host: &str, port: u16, handshake_b64: &str) -> Result
          X-Tailscale-Handshake: {handshake_b64}\r\n\
          Content-Length: 0\r\n\r\n"
     );
-    conn.stream.write_all(req.as_bytes())?;
+    conn.stream.write_all(req.as_bytes()).map_err(|_| anyhow::anyhow!("upgrade write"))?;
 
     // Read until end of HTTP response headers.
     let mut head = Vec::new();
     let mut tmp = [0u8; 512];
     let body_start;
     loop {
-        let n = conn.stream.read(&mut tmp)?;
+        let n = conn.stream.read(&mut tmp).map_err(|_| anyhow::anyhow!("upgrade read"))?;
         if n == 0 {
             bail!("connection closed during upgrade");
         }
@@ -77,7 +81,7 @@ impl Conn {
     fn fill_to(&mut self, n: usize) -> Result<()> {
         let mut tmp = [0u8; 2048];
         while self.rx.len() < n {
-            let r = self.stream.read(&mut tmp)?;
+            let r = self.stream.read(&mut tmp).map_err(|_| anyhow::anyhow!("stream read"))?;
             if r == 0 {
                 bail!("connection closed (wanted {n}, have {})", self.rx.len());
             }
@@ -103,8 +107,7 @@ impl Conn {
     }
 
     pub fn write_all(&mut self, data: &[u8]) -> Result<()> {
-        self.stream.write_all(data)?;
-        Ok(())
+        self.stream.write_all(data).map_err(|_| anyhow::anyhow!("stream write"))
     }
 }
 

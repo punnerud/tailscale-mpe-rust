@@ -7,7 +7,7 @@
 pub mod h2;
 pub use tailscale_core::noise; // migrated to the no_std core crate
 pub use tailscale_core::peers; // migrated to the no_std core crate
-pub mod transport;
+pub use tailscale_core::transport; // migrated to the no_std core crate (over ByteStream)
 
 use anyhow::{bail, Context, Result};
 use std::time::Duration;
@@ -254,13 +254,38 @@ fn build_register_json(keys: &NodeKeys, auth_key: &str) -> String {
 
 /// Perform the ts2021 Noise IK handshake over cleartext TCP and return the live
 /// connection plus the derived transport cipher. (M4)
+/// Firmware adapter: a `std::net::TcpStream` as a core [`ByteStream`]. The core
+/// transport does the ts2021 upgrade + framing over this; we own the actual socket.
+struct TcpByteStream(std::net::TcpStream);
+
+impl tailscale_core::platform::ByteStream for TcpByteStream {
+    fn read(&mut self, buf: &mut [u8]) -> core::result::Result<usize, ()> {
+        use std::io::Read;
+        self.0.read(buf).map_err(|_| ())
+    }
+    fn write_all(&mut self, buf: &[u8]) -> core::result::Result<(), ()> {
+        use std::io::Write;
+        self.0.write_all(buf).map_err(|_| ())
+    }
+}
+
+/// Connect TCP with the control-channel timeouts (long read for the map long-poll).
+fn tcp_connect(host: &str, port: u16) -> Result<TcpByteStream> {
+    let stream = std::net::TcpStream::connect((host, port))?;
+    stream.set_read_timeout(Some(Duration::from_secs(75)))?;
+    stream.set_write_timeout(Some(Duration::from_secs(20)))?;
+    stream.set_nodelay(true).ok();
+    Ok(TcpByteStream(stream))
+}
+
 pub fn handshake(
     machine_priv: &[u8; 32],
     control_pub: &[u8; 32],
 ) -> Result<(transport::Conn, noise::Transport)> {
     let (hs, framed_init) = noise::start(machine_priv, control_pub)?;
     let header = transport::base64_std(&framed_init);
-    let mut conn = transport::connect_and_upgrade(config::CONTROL_HOST, config::TS2021_PORT, &header)
+    let stream = tcp_connect(config::CONTROL_HOST, config::TS2021_PORT).context("ts2021 tcp connect")?;
+    let mut conn = transport::connect_and_upgrade(Box::new(stream), config::CONTROL_HOST, &header)
         .context("ts2021 upgrade")?;
 
     let (typ, payload) = conn.read_frame().context("read handshake response frame")?;
