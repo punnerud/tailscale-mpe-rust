@@ -4,10 +4,13 @@
 //! then one-shot POSTs (`/machine/register`) and one long-poll stream
 //! (`/machine/map`). HPACK is literal-without-indexing, no Huffman.
 
-use anyhow::{bail, Context, Result};
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 
-use super::noise::{self, Transport};
-use super::transport::Conn;
+use anyhow::{bail, Result};
+
+use crate::noise::{self, Transport};
+use crate::transport::Conn;
 
 const PREFACE: &[u8] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
 const EARLY_MAGIC: &[u8] = b"\xff\xff\xffTS";
@@ -29,13 +32,15 @@ pub struct H2 {
     tr: Transport,
     rx: Vec<u8>, // decrypted plaintext not yet consumed
     next_stream: u32,
+    authority: String, // the `:authority` header (control host), supplied by the adapter
 }
 
 impl H2 {
     /// Take ownership of the post-handshake connection + transport and run the
-    /// HTTP/2 startup: consume any early payload, exchange SETTINGS.
-    pub fn start(conn: Conn, tr: Transport) -> Result<(Self, Option<Vec<u8>>)> {
-        let mut h = H2 { conn, tr, rx: Vec::new(), next_stream: 1 };
+    /// HTTP/2 startup: consume any early payload, exchange SETTINGS. `authority` is
+    /// the control host for the `:authority` pseudo-header.
+    pub fn start(conn: Conn, tr: Transport, authority: String) -> Result<(Self, Option<Vec<u8>>)> {
+        let mut h = H2 { conn, tr, rx: Vec::new(), next_stream: 1, authority };
 
         // Client preface + our SETTINGS.
         let mut hello = Vec::new();
@@ -85,7 +90,7 @@ impl H2 {
         let mut hdr = Vec::new();
         enc_header(&mut hdr, ":method", "POST");
         enc_header(&mut hdr, ":scheme", "http");
-        enc_header(&mut hdr, ":authority", crate::config::CONTROL_HOST);
+        enc_header(&mut hdr, ":authority", &self.authority);
         enc_header(&mut hdr, ":path", path);
         enc_header(&mut hdr, "content-type", "application/json");
         enc_header(&mut hdr, "content-length", &body.len().to_string());
@@ -108,7 +113,7 @@ impl H2 {
         let mut hdr = Vec::new();
         enc_header(&mut hdr, ":method", "POST");
         enc_header(&mut hdr, ":scheme", "http");
-        enc_header(&mut hdr, ":authority", crate::config::CONTROL_HOST);
+        enc_header(&mut hdr, ":authority", &self.authority);
         enc_header(&mut hdr, ":path", path);
         enc_header(&mut hdr, "content-type", "application/json");
         enc_header(&mut hdr, "content-length", &body.len().to_string());
@@ -248,8 +253,7 @@ impl H2 {
         let len = ((hdr[0] as usize) << 16) | ((hdr[1] as usize) << 8) | hdr[2] as usize;
         let typ = hdr[3];
         let flags = hdr[4];
-        let stream_id =
-            u32::from_be_bytes([hdr[5], hdr[6], hdr[7], hdr[8]]) & 0x7fff_ffff;
+        let stream_id = u32::from_be_bytes([hdr[5], hdr[6], hdr[7], hdr[8]]) & 0x7fff_ffff;
         let payload = if len > 0 { self.read_exact(len)? } else { Vec::new() };
         Ok(Frame { typ, flags, stream_id, payload })
     }
@@ -337,7 +341,7 @@ fn decode_status(block: &[u8]) -> Option<u16> {
             let val = &block[i..i + vlen];
             i += vlen;
             if name == b":status" {
-                return std::str::from_utf8(val).ok()?.parse().ok();
+                return core::str::from_utf8(val).ok()?.parse().ok();
             }
             continue;
         }

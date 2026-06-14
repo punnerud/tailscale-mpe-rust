@@ -4,7 +4,7 @@
 //! Noise static public key (`mkey`) over plain HTTPS. Later milestones add the
 //! Noise IK handshake (M4), registration (M5) and the netmap fetch (M6).
 
-pub mod h2;
+pub use tailscale_core::h2; // migrated to the no_std core crate
 pub use tailscale_core::noise; // migrated to the no_std core crate
 pub use tailscale_core::peers; // migrated to the no_std core crate
 pub use tailscale_core::transport; // migrated to the no_std core crate (over ByteStream)
@@ -30,7 +30,7 @@ pub struct RegisterResult {
 /// payload + SETTINGS). Returns the ready H2 session. (M5)
 pub fn connect(machine_priv: &[u8; 32], control_pub: &[u8; 32]) -> Result<h2::H2> {
     let (conn, tr) = handshake(machine_priv, control_pub)?;
-    let (sess, early) = h2::H2::start(conn, tr).context("http2 start")?;
+    let (sess, early) = h2::H2::start(conn, tr, config::CONTROL_HOST.to_string()).context("http2 start")?;
     match &early {
         Some(j) => println!("early payload: {} bytes", j.len()),
         None => println!("no early payload"),
