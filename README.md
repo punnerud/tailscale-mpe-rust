@@ -1,7 +1,5 @@
 # tailscale-mpe-rust
 
-*(**MPE** = **M**orten **P**unnerud-**E**ngelstad)*
-
 A **pure-Rust [Tailscale](https://tailscale.com) client for the ESP32-S3** (LilyGO
 T-Dongle S3) — no C Tailscale, no `tailscaled`, no DERP-only shortcuts. It speaks
 the real protocols against Tailscale's own coordination server: the **ts2021**
@@ -9,8 +7,8 @@ control plane (Noise IK over HTTP/2), **WireGuard** data plane, **disco** path
 discovery, **STUN** NAT traversal, and an **encrypted DERP relay** fallback.
 
 > **Not to be confused with the unrelated `tailscale-rust` crate.** This is a
-> from-scratch firmware + a portable `no_std` protocol core, by Morten
-> Punnerud-Engelstad (**mpe**). Different project, different scope.
+> from-scratch firmware + a portable `no_std` protocol core. Different project,
+> different scope.
 
 A ~$10 USB dongle becomes a Tailscale node you can `ping`, browse to, and route
 through — running hand-rolled WireGuard crypto on a dual-core Xtensa LX7.
@@ -215,4 +213,4 @@ docs/       GitHub Pages site + design notes
 
 ---
 
-*Pure-Rust Tailscale on a USB dongle. By Morten Punnerud-Engelstad.*
+*Pure-Rust Tailscale on a USB dongle. **MPE** = Morten Punnerud-Engelstad.*
