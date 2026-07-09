@@ -37,6 +37,13 @@ pub struct Incoming {
     pub txid: [u8; 12],
     /// For CALL_ME_MAYBE: the peer's candidate IPv4 endpoints (fresh ports).
     pub endpoints: Vec<SocketAddr>,
+    /// For PONG: the source address the SENDER observed for OUR probe packet — i.e. our
+    /// own reflexive endpoint as seen from the peer's vantage point. Compared against our
+    /// STUN-learned mapping, this reveals our NAT mapping behaviour (endpoint-independent
+    /// = cone vs endpoint-dependent = symmetric) without any RFC 3489 STUN server. The
+    /// field was already carried on the wire by `pong_plaintext`; it was simply discarded
+    /// on receive until now. `None` for non-PONG messages or a malformed/absent field.
+    pub observed_src: Option<SocketAddr>,
 }
 
 /// PING plaintext: type ‖ ver ‖ TxID(12) ‖ our_node_pub(32).
@@ -117,7 +124,14 @@ pub fn open(my_disco_priv: &[u8; 32], wire: &[u8]) -> Result<Incoming> {
     } else {
         Vec::new()
     };
-    Ok(Incoming { sender_disco_pub: sender, msg_type: pt[0], txid, endpoints })
+    // PONG carries our reflexive src (18-byte AddrPort after the 12-byte txid). Parse it so
+    // the caller can classify its own NAT mapping (see `Incoming::observed_src`).
+    let observed_src = if pt[0] == PONG && pt.len() >= 32 {
+        bytes_to_addr(&pt[14..32])
+    } else {
+        None
+    };
+    Ok(Incoming { sender_disco_pub: sender, msg_type: pt[0], txid, endpoints, observed_src })
 }
 
 /// Decode an 18-byte AddrPort (16-byte IP ‖ 2-byte port BE) — IPv4 only.
