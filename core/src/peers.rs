@@ -23,6 +23,13 @@ pub struct PeerInfo {
     pub tailscale_ip: Option<String>, // first 100.x address, /bits stripped
     pub endpoints: Vec<String>,       // candidate "ip:port" direct paths
     pub hostname: String,
+    /// The peer's advertised `Hostinfo.NetInfo.MappingVariesByDestIP` (its own NAT self-
+    /// classification, gossiped over the control plane): `Some(true)` = endpoint-dependent
+    /// mapping (symmetric NAT), `Some(false)` = endpoint-independent (full-cone/EIM),
+    /// `None` = not advertised / unknown. Consumed for direction-aware connection reversal
+    /// and symmetric fast-start (the initiating side can be chosen by NAT hardness instead
+    /// of a blind key tie-breaker).
+    pub mapping_varies: Option<bool>,
 }
 
 // --- minimal wire structs: only the fields we read ---
@@ -51,6 +58,16 @@ struct PeerT {
 struct HostinfoT {
     #[serde(rename = "Hostname")]
     hostname: Option<String>,
+    #[serde(rename = "NetInfo")]
+    net_info: Option<NetInfoT>,
+}
+
+#[derive(Deserialize)]
+struct NetInfoT {
+    /// tailcfg `NetInfo.MappingVariesByDestIP`: does the node's external mapping vary by
+    /// destination IP (symmetric NAT)? Omitted by peers that have not classified themselves.
+    #[serde(rename = "MappingVariesByDestIP")]
+    mapping_varies_by_dest_ip: Option<bool>,
 }
 
 // --- packet filter (ACL) wire structs ---
@@ -151,16 +168,21 @@ pub fn parse_peers(raw: &[u8]) -> Result<Vec<PeerInfo>> {
             .into_iter()
             .map(|a| a.split('/').next().unwrap_or("").to_string())
             .find(|a| a.starts_with("100."));
-        let hostname = p
-            .hostinfo
-            .and_then(|h| h.hostname)
-            .unwrap_or_else(|| "?".to_string());
+        // Destructure Hostinfo once: both the hostname and the gossiped NAT self-class.
+        let (hostname, mapping_varies) = match p.hostinfo {
+            Some(h) => (
+                h.hostname.unwrap_or_else(|| "?".to_string()),
+                h.net_info.and_then(|n| n.mapping_varies_by_dest_ip),
+            ),
+            None => ("?".to_string(), None),
+        };
         out.push(PeerInfo {
             node_key,
             disco_key,
             tailscale_ip,
             endpoints: p.endpoints.unwrap_or_default(),
             hostname,
+            mapping_varies,
         });
     }
     Ok(out)
