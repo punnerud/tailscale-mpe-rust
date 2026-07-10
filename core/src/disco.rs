@@ -21,6 +21,15 @@ pub const MAGIC: [u8; 6] = [0x54, 0x53, 0xf0, 0x9f, 0x92, 0xac]; // "TS💬"
 pub const PING: u8 = 0x01;
 pub const PONG: u8 = 0x02;
 pub const CALL_ME_MAYBE: u8 = 0x03;
+/// REVERSE_CONNECT: an explicit, race-free connection-reversal request. Sent by the side that
+/// would normally be the WireGuard initiator (the tie-breaker winner) when it judges itself the
+/// more-reachable side (e.g. full-cone) and the peer the harder one (symmetric): it asks the peer
+/// to be the initiator instead — the peer's single outbound handshake punches cleanly toward the
+/// reachable sender, avoiding a birthday-spray. Carries the SENDER's candidate endpoints (same
+/// wire shape as CALL_ME_MAYBE) so the recipient knows where to send its initiation. The sender
+/// suppresses its own initiation while a reversal is outstanding (see the host delegation logic),
+/// so exactly one side ever initiates — no simultaneous-handshake race.
+pub const REVERSE_CONNECT: u8 = 0x04;
 
 const VERSION: u8 = 0x00;
 const HDR: usize = 6 + 32 + 24; // magic + sender pub + nonce
@@ -35,7 +44,7 @@ pub struct Incoming {
     pub sender_disco_pub: [u8; 32],
     pub msg_type: u8,
     pub txid: [u8; 12],
-    /// For CALL_ME_MAYBE: the peer's candidate IPv4 endpoints (fresh ports).
+    /// For CALL_ME_MAYBE and REVERSE_CONNECT: the sender's candidate IPv4 endpoints.
     pub endpoints: Vec<SocketAddr>,
     /// For PONG: the source address the SENDER observed for OUR probe packet — i.e. our
     /// own reflexive endpoint as seen from the peer's vantage point. Compared against our
@@ -71,6 +80,20 @@ pub fn pong_plaintext(txid: &[u8; 12], src: SocketAddr) -> Vec<u8> {
 pub fn call_me_maybe_plaintext(eps: &[SocketAddr]) -> Vec<u8> {
     let mut p = Vec::with_capacity(2 + eps.len() * 18);
     p.push(CALL_ME_MAYBE);
+    p.push(VERSION);
+    for e in eps {
+        p.extend_from_slice(&addr_to_bytes(*e));
+    }
+    p
+}
+
+/// REVERSE_CONNECT plaintext: type ‖ ver ‖ N×AddrPort — identical shape to CALL_ME_MAYBE,
+/// carrying the SENDER's endpoints so the recipient can initiate the WireGuard handshake toward
+/// us (connection reversal). Distinct type byte so a recipient treats it as "you initiate to me",
+/// not merely "come probe me".
+pub fn reverse_connect_plaintext(eps: &[SocketAddr]) -> Vec<u8> {
+    let mut p = Vec::with_capacity(2 + eps.len() * 18);
+    p.push(REVERSE_CONNECT);
     p.push(VERSION);
     for e in eps {
         p.extend_from_slice(&addr_to_bytes(*e));
@@ -119,7 +142,7 @@ pub fn open(my_disco_priv: &[u8; 32], wire: &[u8]) -> Result<Incoming> {
     }
     let mut txid = [0u8; 12];
     txid.copy_from_slice(&pt[2..14]);
-    let endpoints = if pt[0] == CALL_ME_MAYBE {
+    let endpoints = if pt[0] == CALL_ME_MAYBE || pt[0] == REVERSE_CONNECT {
         pt[2..].chunks(18).filter_map(bytes_to_addr).collect()
     } else {
         Vec::new()
